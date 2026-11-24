@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D CAD & AC Motor Explorer</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #0f141c;
+      color: #e6edf3;
+      overflow: hidden;
+      height: 100vh;
+      display: flex;
+    }
+
+    /* Left Sidebar */
+    #sidebar {
+      width: 290px;
+      background: rgba(18, 24, 34, 0.96);
+      border-right: 1px solid #263244;
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+      user-select: none;
+    }
+    .sidebar-header {
+      padding: 16px;
+      border-bottom: 1px solid #263244;
+    }
+    .sidebar-header h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      color: #58a6ff;
+    }
+    .sidebar-header p {
+      font-size: 12px;
+      color: #8b949e;
+      margin-top: 4px;
+    }
+
+    .upload-box {
+      padding: 12px 16px;
+      border-bottom: 1px solid #263244;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .btn {
+      background: #1f6feb;
+      color: #fff;
+      border: none;
+      padding: 8px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      transition: background 0.15s;
+    }
+    .btn:hover { background: #388bfd; }
+    .btn-secondary {
+      background: #212936;
+      border: 1px solid #303d4f;
+      color: #c9d1d9;
+    }
+    .btn-secondary:hover { background: #2b3545; }
+    .btn-secondary.active {
+      background: #1f6feb33;
+      border-color: #58a6ff;
+      color: #58a6ff;
+    }
+
+    .parts-title {
+      padding: 10px 16px 6px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #8b949e;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    #parts-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 10px 14px;
+    }
+    .part-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12.5px;
+      margin-bottom: 2px;
+      transition: background 0.12s;
+    }
+    .part-item:hover { background: #1e2736; }
+    .part-item.selected {
+      background: #1f6feb2e;
+      color: #79c0ff;
+      font-weight: 600;
+    }
+    .part-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      overflow: hidden;
+    }
+    .part-swatch {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      flex-shrink: 0;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .part-name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .eye-btn {
+      background: none;
+      border: none;
+      color: #8b949e;
+      cursor: pointer;
+      font-size: 13px;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+    .eye-btn:hover { color: #fff; background: #2c384a; }
+    .eye-btn.hidden-part { opacity: 0.35; }
+
+    /* Main Viewport */
+    #viewport-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Floating Controls Panel */
+    #controls-panel {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 265px;
+      background: rgba(18, 24, 34, 0.88);
+      backdrop-filter: blur(8px);
+      border: 1px solid #263244;
+      border-radius: 10px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      z-index: 10;
+    }
+    .control-group label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #c9d1d9;
+      margin-bottom: 5px;
+    }
+    .control-group label span { color: #58a6ff; font-weight: 600; }
+    input[type="range"] {
+      width: 100%;
+      accent-color: #1f6feb;
+      cursor: pointer;
+    }
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    /* Info Inspector Card */
+    #inspector-card {
+      position: absolute;
+      bottom: 14px;
+      right: 14px;
+      width: 300px;
+      background: rgba(18, 24, 34, 0.9);
+      backdrop-filter: blur(8px);
+      border: 1px solid #263244;
+      border-radius: 10px;
+      padding: 13px 15px;
+      z-index: 10;
+    }
+    #inspector-card h3 {
+      font-size: 13.5px;
+      color: #79c0ff;
+      margin-bottom: 4px;
+    }
+    #inspector-card p {
+      font-size: 12px;
+      line-height: 1.45;
+      color: #adbac7;
+    }
+
+    /* Hint & Drop Overlay */
+    #hint-bar {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      background: rgba(18, 24, 34, 0.78);
+      border: 1px solid #263244;
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 11.5px;
+      color: #8b949e;
+      pointer-events: none;
+    }
+    #drop-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(31, 111, 235, 0.18);
+      border: 3px dashed #58a6ff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+      z-index: 30;
+      pointer-events: none;
+    }
+    #loader-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 20, 28, 0.75);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: #79c0ff;
+      z-index: 25;
+    }
+  </style>
+
+  <!-- Import map for Three.js ES Modules -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+  <!-- OpenCascade WASM CAD Importer (for .STEP / .IGES / .BREP files) -->
+  <script src="https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/occt-import-js.js"></script>
+</head>
+<body>
+
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h1>3D CAD & Motor Explorer</h1>
+      <p id="model-subtitle">Demo: 3-Phase AC Induction Motor</p>
+    </div>
+
+    <div class="upload-box">
+      <input type="file" id="file-input" accept=".step,.stp,.iges,.igs,.brep,.stl,.obj,.glb,.gltf" hidden />
+      <button class="btn" id="upload-btn">+ Open CAD File (.STEP, .STL, .GLB)</button>
+      <button class="btn btn-secondary" id="reset-demo-btn">Load Demo AC Motor</button>
+    </div>
+
+    <div class="parts-title">
+      <span>Assembly Parts (<span id="part-count">0</span>)</span>
+      <button class="eye-btn" id="show-all-btn" title="Show All Parts">Show All</button>
+    </div>
+    <div id="parts-list"></div>
+  </aside>
+
+  <main id="viewport-wrap">
+    <div id="canvas-container"></div>
+
+    <div id="controls-panel">
+      <div class="control-group">
+        <label>Exploded View <span id="explode-val">0%</span></label>
+        <input type="range" id="explode-slider" min="0" max="100" value="0" />
+      </div>
+      <div class="control-group">
+        <label>Cross-Section Slice <span id="clip-val">Off</span></label>
+        <input type="range" id="clip-slider" min="-100" max="100" value="100" />
+      </div>
+      <div class="btn-grid">
+        <button class="btn btn-secondary active" id="spin-btn">Spin Rotor: ON</button>
+        <button class="btn btn-secondary" id="xray-btn">X-Ray Casing</button>
+        <button class="btn btn-secondary" id="wire-btn">Wireframe</button>
+        <button class="btn btn-secondary" id="cam-reset-btn">Reset Camera</button>
+      </div>
+    </div>
+
+    <div id="inspector-card">
+      <h3 id="insp-title">Click any part to inspect</h3>
+      <p id="insp-desc">Drag to orbit, scroll to zoom, right-click to pan. Use the Exploded View slider or X-Ray mode to look inside the AC motor.</p>
+    </div>
+
+    <div id="hint-bar">
+      Left-drag: Orbit &nbsp;|&nbsp; Right-drag: Pan &nbsp;|&nbsp; Scroll: Zoom &nbsp;|&nbsp; Drop .STEP / .STL / .GLB anywhere
+    </div>
+
+    <div id="drop-overlay">Drop 3D CAD File Here (.STEP, .IGES, .STL, .OBJ, .GLB)</div>
+    <div id="loader-overlay">Parsing 3D CAD geometry...</div>
+  </main>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+    import { STLLoader } from 'three/addons/loaders/STLLoader.js';
+    import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // --- Scene & Renderer Setup ---
+    const container = document.getElementById('canvas-container');
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    renderer.localClippingEnabled = true;
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f141c);
+
+    // Studio metallic reflections
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+    const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.05, 500);
+    camera.position.set(4.8, 2.8, 5.2);
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+
+    // Subtle floor grid
+    const grid = new THREE.GridHelper(20, 24, 0x263244, 0x192230);
+    grid.position.y = -1.35;
+    scene.add(grid);
+
+    // Lights
+    const keyLight = new THREE.DirectionalLight(0xffffff, 1.4);
+    keyLight.position.set(6, 10, 7);
+    scene.add(keyLight);
+
+    const fillLight = new THREE.DirectionalLight(0x88bbff, 0.6);
+    fillLight.position.set(-6, 3, -5);
+    scene.add(fillLight);
+
+    // Clipping plane for Cross-Section
+    const clipPlane = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 10);
+
+    // State
+    let rootGroup = new THREE.Group();
+    scene.add(rootGroup);
+
+    let parts = [];           // { name, desc, color, group, explodeVec, isCasing, isSpinning }
+    let selectedPart = null;
+    let isSpinning = true;
+    let isXray = false;
+    let isWireframe = false;
+    let explodeAmount = 0;
+    let modelRadius = 2.5;
+    let occtInstance = null;
+
+    // UI Elements
+    const partsListEl = document.getElementById('parts-list');
+    const partCountEl = document.getElementById('part-count');
+    const explodeSlider = document.getElementById('explode-slider');
+    const explodeVal = document.getElementById('explode-val');
+    const clipSlider = document.getElementById('clip-slider');
+    const clipVal = document.getElementById('clip-val');
+    const spinBtn = document.getElementById('spin-btn');
+    const xrayBtn = document.getElementById('xray-btn');
+    const wireBtn = document.getElementById('wire-btn');
+    const inspTitle = document.getElementById('insp-title');
+    const inspDesc = document.getElementById('insp-desc');
+    const loaderOverlay = document.getElementById('loader-overlay');
+
+    // --- Helper: Create Material ---
+    function makeMat(hex, metalness = 0.7, roughness = 0.32) {
+      return new THREE.MeshStandardMaterial({
+        color: hex,
+        metalness,
+        roughness,
+        clippingPlanes: [clipPlane],
+        side: THREE.FrontSide
+      });
+    }
+
+    // --- Helper: Hollow Cylinder via LatheGeometry (aligned along X-axis) ---
+    function createHollowCylinder(rIn, rOut, length, radialSegs = 48) {
+      const half = length / 2;
+      const pts = [
+        new THREE.Vector2(rIn, -half),
+        new THREE.Vector2(rOut, -half),
+        new THREE.Vector2(rOut, half),
+        new THREE.Vector2(rIn, half),
+        new THREE.Vector2(rIn, -half)
+      ];
+      const geo = new THREE.LatheGeometry(pts, radialSegs);
+      geo.rotateZ(-Math.PI / 2); // Align along X-axis
+      return geo;
+    }
+
+    // --- Build Procedural 3D AC Induction Motor ---
+    function buildDemoACMotor() {
+      clearModel();
+      document.getElementById('model-subtitle').textContent = 'Demo: 3-Phase AC Induction Motor';
+      grid.visible = true;
+      grid.position.y = -1.35;
+
+      const matHousing  = makeMat(0x2f5d8a, 0.55, 0.42);
+      const matCastDark = makeMat(0x23394f, 0.55, 0.52);
+      const matIron     = makeMat(0x4a5568, 0.75, 0.45);
+      const matCopper   = makeMat(0xd4753b, 0.88, 0.22);
+      const matSteel    = makeMat(0xcbd5e1, 0.92, 0.18);
+      const matAlum     = makeMat(0xa0aec0, 0.82, 0.28);
+      const matBearing  = makeMat(0xe2e8f0, 0.95, 0.12);
+      const matSeal     = makeMat(0x1a202c, 0.20, 0.75);
+
+      const addPart = (name, desc, colorHex, group, explodeVec, opts = {}) => {
+        group.userData.homePos = group.position.clone();
+        group.userData.explodeVec = explodeVec;
+        rootGroup.add(group);
+        parts.push({
+          name,
+          desc,
+          color: '#' + colorHex.toString(16).padStart(6, '0'),
+          group,
+          explodeVec,
+          isCasing: !!opts.isCasing,
+          isSpinning: !!opts.isSpinning
+        });
+      };
+
+      // 1. Stator Housing & Cooling Fins
+      {
+        const g = new THREE.Group();
+        const shell = new THREE.Mesh(createHollowCylinder(0.96, 1.12, 2.0, 56), matHousing);
+        g.add(shell);
+
+        const finCount = 26;
+        const finGeo = new THREE.BoxGeometry(1.9, 0.032, 0.16);
+        for (let i = 0; i < finCount; i++) {
+          const ang = (i / finCount) * Math.PI * 2;
+          // Leave room for terminal box on top and feet on bottom
+          if (Math.abs(Math.sin(ang) - 1) < 0.08 || Math.abs(Math.sin(ang) + 1) < 0.18) continue;
+          const fin = new THREE.Mesh(finGeo, matHousing);
+          fin.position.set(0, Math.sin(ang) * 1.16, Math.cos(ang) * 1.16);
+          fin.rotation.x = -ang;
+          g.add(fin);
+        }
+        addPart(
+          'Stator Housing & Fins',
+          'Cast-iron or aluminum outer frame with radial cooling fins to dissipate heat generated by stator losses.',
+          0x2f5d8a, g, new THREE.Vector3(0, 0, -2.3), { isCasing: true }
+        );
+      }
+
+      // 2. Mounting Feet
+      {
+        const g = new THREE.Group();
+        const footGeo = new THREE.BoxGeometry(1.6, 0.14, 0.55);
+        const riserGeo = new THREE.BoxGeometry(1.3, 0.28, 0.22);
+        const boltGeo = new THREE.CylinderGeometry(0.055, 0.055, 0.16, 16);
+
+        [-0.95, 0.95].forEach(z => {
+          const foot = new THREE.Mesh(footGeo, matCastDark);
+          foot.position.set(0, -1.28, z);
+          g.add(foot);
+
+          const riser = new THREE.Mesh(riserGeo, matCastDark);
+          riser.position.set(0, -1.1, z * 0.85);
+          g.add(riser);
+
+          [-0.6, 0.6].forEach(x => {
+            const hole = new THREE.Mesh(boltGeo, matSeal);
+            hole.position.set(x, -1.27, z + (z > 0 ? 0.12 : -0.12));
+            g.add(hole);
+          });
+        });
+        addPart(
+          'Mounting Feet',
+          'Heavy-duty base feet with slotted bolt holes for rigidly anchoring the motor to a machine bedplate.',
+          0x23394f, g, new THREE.Vector3(0, -0.95, -2.3), { isCasing: true }
+        );
+      }
+
+      // 3. Terminal Box
+      {
+        const g = new THREE.Group();
+        const box = new THREE.Mesh(new THREE.BoxGeometry(0.68, 0.36, 0.62), matCastDark);
+        box.position.set(0, 1.24, 0);
+        g.add(box);
+
+        const lid = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.06, 0.66), matHousing);
+        lid.position.set(0, 1.44, 0);
+        g.add(lid);
+
+        const gland = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.22, 16), matSteel);
+        gland.rotation.x = Math.PI / 2;
+        gland.position.set(0, 1.24, 0.38);
+        g.add(gland);
+
+        addPart(
+          'Terminal Box',
+          'Weather-sealed junction enclosure housing the 3-phase power connection terminals (U1, V1, W1 / Star-Delta links).',
+          0x23394f, g, new THREE.Vector3(0, 1.15, -2.3), { isCasing: true }
+        );
+      }
+
+      // 4. Stator Laminated Core
+      {
+        const g = new THREE.Group();
+        const core = new THREE.Mesh(createHollowCylinder(0.60, 0.94, 1.45, 56), matIron);
+        g.add(core);
+        addPart(
+          'Stator Laminated Core',
+          'Stacked silicon-steel laminations insulated from each other to minimize eddy-current losses while carrying the rotating magnetic field.',
+          0x4a5568, g, new THREE.Vector3(0, 0, 0)
+        );
+      }
+
+      // 5. Copper Stator Windings
+      {
+        const g = new THREE.Group();
+        const coilCount = 24;
+        const endTurnGeo = new THREE.TorusGeometry(0.11, 0.036, 10, 18);
+        const slotBarGeo = new THREE.CylinderGeometry(0.034, 0.034, 1.56, 8);
+        slotBarGeo.rotateZ(Math.PI / 2);
+
+        for (let i = 0; i < coilCount; i++) {
+          const ang = (i / coilCount) * Math.PI * 2;
+          const r = 0.69;
+          const bar = new THREE.Mesh(slotBarGeo, matCopper);
+          bar.position.set(0, Math.sin(ang) * r, Math.cos(ang) * r);
+          g.add(bar);
+
+          [-0.78, 0.78].forEach(x => {
+            const loop = new THREE.Mesh(endTurnGeo, matCopper);
+            loop.position.set(x, Math.sin(ang) * 0.68, Math.cos(ang) * 0.68);
+            loop.rotation.y = ang;
+            g.add(loop);
+          });
+        }
+        addPart(
+          'Copper Stator Windings',
+          'Three-phase enameled copper coils placed in stator slots; energized by AC supply to produce a synchronous rotating magnetic field.',
+          0xd4753b, g, new THREE.Vector3(0, 1.55, 0)
+        );
+      }
+
+      // 6. Squirrel-Cage Rotor
+      {
+        const g = new THREE.Group();
+        const body = new THREE.Mesh(createHollowCylinder(0.18, 0.56, 1.38, 48), matIron);
+        g.add(body);
+
+        const endRingGeo = createHollowCylinder(0.45, 0.565, 0.08, 40);
+        [-0.72, 0.72].forEach(x => {
+          const ring = new THREE.Mesh(endRingGeo, matAlum);
+          ring.position.x = x;
+          g.add(ring);
+        });
+
+        const barGeo = new THREE.BoxGeometry(1.42, 0.04, 0.04);
+        for (let i = 0; i < 20; i++) {
+          const ang = (i / 20) * Math.PI * 2;
+          const bar = new THREE.Mesh(barGeo, matAlum);
+          bar.position.set(0, Math.sin(ang) * 0.555, Math.cos(ang) * 0.555);
+          bar.rotation.x = -ang;
+          g.add(bar);
+        }
+
+        addPart(
+          'Squirrel-Cage Rotor',
+          'Laminated steel rotor with die-cast aluminum conductor bars shorted by end rings; induced currents react with the stator field to produce torque.',
+          0xa0aec0, g, new THREE.Vector3(1.6, 0, 0), { isSpinning: true }
+        );
+      }
+
+      // 7. Rotor Shaft
+      {
+        const g = new THREE.Group();
+        const segs = [
+          { r: 0.14, l: 0.9, x: -1.35 },
+          { r: 0.18, l: 1.9, x: 0.0 },
+          { r: 0.15, l: 0.45, x: 1.15 },
+          { r: 0.13, l: 0.75, x: 1.72 }  // Drive output shaft
+        ];
+        segs.forEach(s => {
+          const m = new THREE.Mesh(new THREE.CylinderGeometry(s.r, s.r, s.l, 32), matSteel);
+          m.rotation.z = Math.PI / 2;
+          m.position.x = s.x;
+          g.add(m);
+        });
+        // Keyway key on output shaft
+        const key = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.045, 0.045), matIron);
+        key.position.set(1.75, 0.13, 0);
+        g.add(key);
+
+        addPart(
+          'Drive Shaft',
+          'High-tensile machined steel shaft transmitting mechanical torque from the rotor core out to the driven load via a keyed coupling.',
+          0xcbd5e1, g, new THREE.Vector3(3.2, 0, 0), { isSpinning: true }
+        );
+      }
+
+      // Helper for Ball Bearings
+      function createBearingGroup(xPos) {
+        const g = new THREE.Group();
+        const outer = new THREE.Mesh(createHollowCylinder(0.28, 0.34, 0.14, 32), matBearing);
+        const inner = new THREE.Mesh(createHollowCylinder(0.155, 0.21, 0.14, 32), matBearing);
+        outer.position.x = xPos;
+        inner.position.x = xPos;
+        g.add(outer, inner);
+
+        const ballGeo = new THREE.SphereGeometry(0.036, 12, 12);
+        for (let i = 0; i < 10; i++) {
+          const ang = (i / 10) * Math.PI * 2;
+          const ball = new THREE.Mesh(ballGeo, matSteel);
+          ball.position.set(xPos, Math.sin(ang) * 0.245, Math.cos(ang) * 0.245);
+          g.add(ball);
+        }
+        return g;
+      }
+
+      // 8. Drive-End Ball Bearing
+      addPart(
+        'Drive-End Bearing (DE)',
+        'Deep-groove ball bearing supporting the drive-end radial and axial shaft loads with minimal friction.',
+        0xe2e8f0, createBearingGroup(1.12), new THREE.Vector3(4.3, 0, 0), { isSpinning: true }
+      );
+
+      // 9. Non-Drive-End Ball Bearing
+      addPart(
+        'Non-Drive-End Bearing (NDE)',
+        'Rear ball bearing maintaining rotor air-gap alignment at the fan end of the shaft.',
+        0xe2e8f0, createBearingGroup(-1.12), new THREE.Vector3(-1.4, 0, 0), { isSpinning: true }
+      );
+
+      // Helper for End Bells
+      function createEndBell(dir) {
+        const g = new THREE.Group();
+        const shield = new THREE.Mesh(createHollowCylinder(0.34, 1.08, 0.22, 48), matHousing);
+        shield.position.x = dir * 1.11;
+        g.add(shield);
+
+        const hub = new THREE.Mesh(createHollowCylinder(dir > 0 ? 0.17 : 0.16, 0.38, 0.28, 32), matCastDark);
+        hub.position.x = dir * 1.15;
+        g.add(hub);
+        return g;
+      }
+
+      // 10. Front End-Bell (Drive End)
+      addPart(
+        'Drive-End Shield (End-Bell)',
+        'Bolted cast housing cap that holds the drive-end bearing and seals the front of the stator frame.',
+        0x2f5d8a, createEndBell(1), new THREE.Vector3(5.3, 0, 0), { isCasing: true }
+      );
+
+      // 11. Rear End-Bell (Non-Drive End)
+      addPart(
+        'Non-Drive-End Shield',
+        'Rear cast end-bell housing the NDE bearing and enclosing the stator windings.',
+        0x2f5d8a, createEndBell(-1), new THREE.Vector3(-2.3, 0, 0), { isCasing: true }
+      );
+
+      // 12. Cooling Fan
+      {
+        const g = new THREE.Group();
+        const hub = new THREE.Mesh(createHollowCylinder(0.145, 0.26, 0.16, 28), matAlum);
+        hub.position.x = -1.45;
+        g.add(hub);
+
+        const plate = new THREE.Mesh(createHollowCylinder(0.16, 0.82, 0.03, 36), matAlum);
+        plate.position.x = -1.41;
+        g.add(plate);
+
+        const bladeGeo = new THREE.BoxGeometry(0.14, 0.56, 0.028);
+        for (let i = 0; i < 9; i++) {
+          const ang = (i / 9) * Math.PI * 2;
+          const blade = new THREE.Mesh(bladeGeo, matAlum);
+          blade.position.set(-1.49, Math.sin(ang) * 0.52, Math.cos(ang) * 0.52);
+          blade.rotation.x = -ang;
+          g.add(blade);
+        }
+        addPart(
+          'External Cooling Fan',
+          'Shaft-mounted radial impeller forcing air across the housing cooling fins (TEFC: Totally Enclosed Fan Cooled).',
+          0xa0aec0, g, new THREE.Vector3(-3.3, 0, 0), { isSpinning: true }
+        );
+      }
+
+      // 13. Fan Cowl / Shroud
+      {
+        const g = new THREE.Group();
+        const cowl = new THREE.Mesh(createHollowCylinder(0.98, 1.06, 0.56, 48), matCastDark);
+        cowl.position.x = -1.42;
+        g.add(cowl);
+
+        const backRing = new THREE.Mesh(createHollowCylinder(0.28, 1.06, 0.04, 48), matCastDark);
+        backRing.position.x = -1.70;
+        g.add(backRing);
+
+        // Grille rings
+        [0.45, 0.65, 0.85].forEach(r => {
+          const bar = new THREE.Mesh(new THREE.TorusGeometry(r, 0.015, 8, 36), matSeal);
+          bar.rotation.y = Math.PI / 2;
+          bar.position.x = -1.72;
+          g.add(bar);
+        });
+
+        addPart(
+          'Fan Cowl (Shroud)',
+          'Protective sheet-metal cover directing cooling airflow longitudinally over the motor fins while guarding the spinning fan.',
+          0x23394f, g, new THREE.Vector3(-4.3, 0, 0), { isCasing: true }
+        );
+      }
+
+      modelRadius = 2.6;
+      resetCamera();
+      renderPartsList();
+    }
+
+    // --- Clear Current Model ---
+    function clearModel() {
+      while (rootGroup.children.length > 0) {
+        rootGroup.remove(rootGroup.children[0]);
+      }
+      parts = [];
+      selectedPart = null;
+      explodeSlider.value = 0;
+      explodeVal.textContent = '0%';
+      explodeAmount = 0;
+      clipSlider.value = 100;
+      clipVal.textContent = 'Off';
+      clipPlane.constant = 100;
+      isXray = false;
+      xrayBtn.classList.remove('active');
+      isWireframe = false;
+      wireBtn.classList.remove('active');
+    }
+
+    // --- Render Sidebar Parts List ---
+    function renderPartsList() {
+      partsListEl.innerHTML = '';
+      partCountEl.textContent = parts.length;
+
+      parts.forEach((p, idx) => {
+        const row = document.createElement('div');
+        row.className = 'part-item' + (selectedPart === p ? ' selected' : '');
+
+        const left = document.createElement('div');
+        left.className = 'part-left';
+        const swatch = document.createElement('span');
+        swatch.className = 'part-swatch';
+        swatch.style.background = p.color;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'part-name';
+        nameSpan.textContent = p.name;
+        left.append(swatch, nameSpan);
+
+        const eye = document.createElement('button');
+        eye.className = 'eye-btn' + (p.group.visible ? '' : ' hidden-part');
+        eye.textContent = p.group.visible ? '👁' : '✕';
+        eye.title = p.group.visible ? 'Hide part' : 'Show part';
+        eye.addEventListener('click', (e) => {
+          e.stopPropagation();
+          p.group.visible = !p.group.visible;
+          renderPartsList();
+        });
+
+        row.append(left, eye);
+        row.addEventListener('click', () => selectPart(p));
+        partsListEl.appendChild(row);
+      });
+    }
+
+    // --- Select & Highlight Part ---
+    function selectPart(part) {
+      // Clear previous highlight
+      if (selectedPart) {
+        selectedPart.group.traverse(obj => {
+          if (obj.isMesh && obj.material?.emissive) {
+            obj.material.emissive.setHex(0x000000);
+          }
+        });
+      }
+
+      selectedPart = part;
+      if (part) {
+        part.group.traverse(obj => {
+          if (obj.isMesh && obj.material?.emissive) {
+            obj.material.emissive.setHex(0x1f4b82);
+          }
+        });
+        inspTitle.textContent = part.name;
+        inspDesc.textContent = part.desc;
+      } else {
+        inspTitle.textContent = 'Click any part to inspect';
+        inspDesc.textContent = 'Drag to orbit, scroll to zoom, right-click to pan.';
+      }
+      renderPartsList();
+    }
+
+    // --- Apply Exploded View ---
+    explodeSlider.addEventListener('input', () => {
+      explodeAmount = Number(explodeSlider.value) / 100;
+      explodeVal.textContent = `${explodeSlider.value}%`;
+      parts.forEach(p => {
+        p.group.position
+          .copy(p.group.userData.homePos)
+          .addScaledVector(p.explodeVec, explodeAmount);
+      });
+    });
+
+    // --- Apply Cross-Section Clipping ---
+    clipSlider.addEventListener('input', () => {
+      const v = Number(clipSlider.value);
+      const clippingActive = v < 100;
+      if (!clippingActive) {
+        clipPlane.constant = 1000;
+        clipVal.textContent = 'Off';
+      } else {
+        const pos = (v / 100) * modelRadius;
+        clipPlane.constant = pos;
+        clipVal.textContent = pos.toFixed(2);
+      }
+
+      rootGroup.traverse(obj => {
+        if (obj.isMesh && obj.material) {
+          obj.material.side = clippingActive ? THREE.DoubleSide : THREE.FrontSide;
+          obj.material.needsUpdate = true;
+        }
+      });
+    });
+
+    // --- Toggle Buttons ---
+    spinBtn.addEventListener('click', () => {
+      isSpinning = !isSpinning;
+      spinBtn.textContent = `Spin Rotor: ${isSpinning ? 'ON' : 'OFF'}`;
+      spinBtn.classList.toggle('active', isSpinning);
+    });
+
+    xrayBtn.addEventListener('click', () => {
+      isXray = !isXray;
+      xrayBtn.classList.toggle('active', isXray);
+      parts.forEach(p => {
+        if (p.isCasing || parts.length === 1) {
+          p.group.traverse(obj => {
+            if (obj.isMesh && obj.material) {
+              obj.material.transparent = isXray;
+              obj.material.opacity = isXray ? 0.22 : 1.0;
+              obj.material.depthWrite = !isXray;
+              obj.material.needsUpdate = true;
+            }
+          });
+        }
+      });
+    });
+
+    wireBtn.addEventListener('click', () => {
+      isWireframe = !isWireframe;
+      wireBtn.classList.toggle('active', isWireframe);
+      rootGroup.traverse(obj => {
+        if (obj.isMesh && obj.material) {
+          obj.material.wireframe = isWireframe;
+        }
+      });
+    });
+
+    document.getElementById('show-all-btn').addEventListener('click', () => {
+      parts.forEach(p => { p.group.visible = true; });
+      renderPartsList();
+    });
+
+    function resetCamera() {
+      const d = modelRadius * 2.2;
+      camera.position.set(d * 0.9, d * 0.55, d);
+      controls.target.set(0, 0, 0);
+      controls.update();
+    }
+    document.getElementById('cam-reset-btn').addEventListener('click', resetCamera);
+    document.getElementById('reset-demo-btn').addEventListener('click', buildDemoACMotor);
+
+    // --- Raycasting (Click to Select 3D Part) ---
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    let downPos = { x: 0, y: 0 };
+
+    renderer.domElement.addEventListener('pointerdown', (e) => {
+      downPos = { x: e.clientX, y: e.clientY };
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      const dist = Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y);
+      if (dist > 5) return; // Ignore orbit drags
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(rootGroup.children, true);
+      const visibleHit = hits.find(h => {
+        let cur = h.object;
+        while (cur) {
+          if (!cur.visible) return false;
+          cur = cur.parent;
+        }
+        return true;
+      });
+
+      if (!visibleHit) {
+        selectPart(null);
+        return;
+      }
+
+      // Find which top-level part owns this mesh
+      const found = parts.find(p => {
+        let cur = visibleHit.object;
+        while (cur) {
+          if (cur === p.group) return true;
+          cur = cur.parent;
+        }
+        return false;
+      });
+      if (found) selectPart(found);
+    });
+
+    // --- Load External CAD Files (.STEP, .IGES, .STL, .OBJ, .GLB) ---
+    async function loadCADFile(file) {
+      const ext = file.name.split('.').pop().toLowerCase();
+      loaderOverlay.style.display = 'flex';
+      loaderOverlay.textContent = `Loading ${file.name}...`;
+
+      try {
+        clearModel();
+        document.getElementById('model-subtitle').textContent = `Loaded: ${file.name}`;
+        grid.visible = false;
+
+        const buffer = await file.arrayBuffer();
+        const importedMeshes = [];
+
+        if (['step', 'stp', 'iges', 'igs', 'brep'].includes(ext)) {
+          if (!occtInstance) {
+            occtInstance = await window.occtimportjs({
+              locateFile: (n) => `https://cdn.jsdelivr.net/npm/occt-import-js@0.0.23/dist/${n}`
+            });
+          }
+          const bytes = new Uint8Array(buffer);
+          let res;
+          if (ext === 'step' || ext === 'stp') res = occtInstance.ReadStepFile(bytes, null);
+          else if (ext === 'iges' || ext === 'igs') res = occtInstance.ReadIgesFile(bytes, null);
+          else res = occtInstance.ReadBrepFile(bytes, null);
+
+          if (!res || !res.success) throw new Error('Could not parse CAD B-Rep file.');
+
+          res.meshes.forEach((m, idx) => {
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.Float32BufferAttribute(m.attributes.position.array, 3));
+            if (m.attributes.normal) {
+              geo.setAttribute('normal', new THREE.Float32BufferAttribute(m.attributes.normal.array, 3));
+            } else {
+              geo.computeVertexNormals();
+            }
+            if (m.index) {
+              geo.setIndex(new THREE.Uint32BufferAttribute(m.index.array, 1));
+            }
+            const col = m.color ? new THREE.Color(m.color[0], m.color[1], m.color[2]) : new THREE.Color(0x6b8cae);
+            const mat = makeMat(col.getHex(), 0.55, 0.35);
+            const mesh = new THREE.Mesh(geo, mat);
+            importedMeshes.push({ name: m.name || `CAD Part ${idx + 1}`, mesh, color: '#' + col.getHexString() });
+          });
+
+        } else if (ext === 'stl') {
+          const geo = new STLLoader().parse(buffer);
+          geo.computeVertexNormals();
+          const mesh = new THREE.Mesh(geo, makeMat(0x5b89b8, 0.6, 0.32));
+          importedMeshes.push({ name: file.name, mesh, color: '#5b89b8' });
+
+        } else if (ext === 'obj') {
+          const text = new TextDecoder().decode(buffer);
+          const obj = new OBJLoader().parse(text);
+          let idx = 1;
+          obj.traverse(c => {
+            if (c.isMesh) {
+              c.material = makeMat(0x6c8ead, 0.5, 0.4);
+              importedMeshes.push({ name: c.name || `Part ${idx++}`, mesh: c, color: '#6c8ead' });
+            }
+          });
+
+        } else if (ext === 'glb' || ext === 'gltf') {
+          const gltf = await new Promise((resolve, reject) => {
+            new GLTFLoader().parse(buffer, '', resolve, reject);
+          });
+          let idx = 1;
+          gltf.scene.traverse(c => {
+            if (c.isMesh) {
+              // Ensure independent material for clipping & highlight
+              c.material = (c.material ? c.material.clone() : makeMat(0x6c8ead));
+              c.material.clippingPlanes = [clipPlane];
+              const col = c.material.color ? '#' + c.material.color.getHexString() : '#6c8ead';
+              importedMeshes.push({ name: c.name || `Mesh ${idx++}`, mesh: c, color: col });
+            }
+          });
+        } else {
+          throw new Error(`Unsupported file extension ".${ext}". Try .STEP, .IGES, .STL, .OBJ, or .GLB.`);
+        }
+
+        // Normalize scale & center at origin
+        const tempGroup = new THREE.Group();
+        importedMeshes.forEach(item => tempGroup.add(item.mesh));
+        const box = new THREE.Box3().setFromObject(tempGroup);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z) || 1;
+        const scale = 3.5 / maxDim;
+
+        importedMeshes.forEach(item => {
+          item.mesh.geometry.translate(-center.x, -center.y, -center.z);
+          item.mesh.geometry.scale(scale, scale, scale);
+          item.mesh.position.set(0, 0, 0);
+          item.mesh.rotation.set(0, 0, 0);
+          item.mesh.scale.set(1, 1, 1);
+
+          // Auto-calculate radial explode vector from part's center
+          const pBox = new THREE.Box3().setFromObject(item.mesh);
+          const pCenter = pBox.getCenter(new THREE.Vector3());
+          const dir = pCenter.lengthSq() > 0.0001 ? pCenter.clone().normalize() : new THREE.Vector3(0, 1, 0);
+          const explodeVec = dir.multiplyScalar(1.8);
+
+          const g = new THREE.Group();
+          g.add(item.mesh);
+          g.userData.homePos = g.position.clone();
+          g.userData.explodeVec = explodeVec;
+          rootGroup.add(g);
+
+          parts.push({
+            name: item.name,
+            desc: `Imported CAD component from ${file.name}.`,
+            color: item.color,
+            group: g,
+            explodeVec,
+            isCasing: true,
+            isSpinning: false
+          });
+        });
+
+        modelRadius = 2.4;
+        resetCamera();
+        renderPartsList();
+        inspTitle.textContent = `${file.name} loaded`;
+        inspDesc.textContent = `Parsed ${parts.length} part(s). Use Exploded View, Cross-Section Slice, or click any part to inspect.`;
+      } catch (err) {
+        alert(err.message);
+        buildDemoACMotor();
+      } finally {
+        loaderOverlay.style.display = 'none';
+      }
+    }
+
+    // File Input & Drag-and-Drop
+    const fileInput = document.getElementById('file-input');
+    document.getElementById('upload-btn').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files[0]) loadCADFile(e.target.files[0]);
+      fileInput.value = '';
+    });
+
+    const wrap = document.getElementById('viewport-wrap');
+    const dropOverlay = document.getElementById('drop-overlay');
+    wrap.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropOverlay.style.display = 'flex';
+    });
+    wrap.addEventListener('dragleave', (e) => {
+      if (e.target === wrap || e.target === dropOverlay) dropOverlay.style.display = 'none';
+    });
+    wrap.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropOverlay.style.display = 'none';
+      if (e.dataTransfer.files[0]) loadCADFile(e.dataTransfer.files[0]);
+    });
+
+    // Resize handling
+    window.addEventListener('resize', () => {
+      camera.aspect = container.clientWidth / container.clientHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+
+    // Animation loop
+    let lastTime = performance.now();
+    function animate(now) {
+      requestAnimationFrame(animate);
+      const dt = Math.min((now - lastTime) / 1000, 0.05);
+      lastTime = now;
+
+      if (isSpinning) {
+        parts.forEach(p => {
+          if (p.isSpinning) p.group.rotation.x += dt * 3.2;
+        });
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+
+    // Start!
+    buildDemoACMotor();
+    animate(performance.now());
+  </script>
+</body>
+</html>
